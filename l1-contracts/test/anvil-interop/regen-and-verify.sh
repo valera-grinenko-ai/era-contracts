@@ -48,8 +48,9 @@ case "$ENV" in
   stage) PORT=29545 ;;
   testnet) PORT=29547 ;;
   mainnet) PORT=29549 ;;
+  battlechain) PORT=29551 ;;
   *)
-    echo "Unknown env '$ENV' (expected: stage | testnet | mainnet)" >&2
+    echo "Unknown env '$ENV' (expected: stage | testnet | mainnet | battlechain)" >&2
     exit 1
     ;;
 esac
@@ -168,6 +169,26 @@ else
 fi
 echo "Using protocol_ops at: $PROTOCOL_OPS"
 
+# Run verify-upgrade (PUVT). When VERIFY_NONFATAL=1, a non-zero exit is reported
+# as a warning instead of aborting the script. Used for ecosystems with known,
+# reviewed PUVT exemptions — e.g. legacy-`Governance.sol`-owned and/or
+# single-chain ecosystems (no canonical Era chain) whose topology the
+# mainnet-oriented PUVT checks don't fully model. The calldata artifacts are
+# produced by the prepare step (Step 1) regardless of PUVT, so this lets CI
+# still publish them while surfacing the full PUVT output for human review.
+run_verify_upgrade() {
+  local rc=0
+  "$PROTOCOL_OPS" ecosystem verify-upgrade "$@" || rc=$?
+  if [[ "$rc" != "0" ]]; then
+    if [[ "${VERIFY_NONFATAL:-0}" == "1" ]]; then
+      echo "::warning::verify-upgrade (PUVT) exited $rc — treated as NON-FATAL (VERIFY_NONFATAL=1)." >&2
+      echo "    Calldata artifacts were already written by the prepare step; review the PUVT output above." >&2
+      return 0
+    fi
+    return "$rc"
+  fi
+}
+
 # Set KEEP_ANVIL=1 to leave the fork anvil running on $PORT after the script
 # exits. Use together with SKIP_PREPARE=1 + SKIP_BROADCAST=1 to iterate on
 # verify-upgrade (seconds per run) without rebroadcasting (minutes per run).
@@ -254,7 +275,7 @@ if [[ "$SKIP_BROADCAST" == "1" && -f "$OUT/fork-rehearsal/executed.json" ]]; the
   : > "$COMBINED_TXLOG"
   [[ -f "$OUT/transactions.txt" ]] && cat "$OUT/transactions.txt" >> "$COMBINED_TXLOG"
   [[ -f "$OUT/fork-rehearsal/transactions.txt" ]] && cat "$OUT/fork-rehearsal/transactions.txt" >> "$COMBINED_TXLOG"
-  "$PROTOCOL_OPS" ecosystem verify-upgrade \
+  run_verify_upgrade \
     --env "$ENV" \
     --ecosystem-toml "$OUT/ecosystem.toml" \
     --l1-rpc-url "$RPC" \
@@ -347,7 +368,7 @@ COMBINED_TXLOG="$FORK_DIR/transactions.combined.txt"
 : > "$COMBINED_TXLOG"
 [[ -f "$REAL_TXLOG" ]] && cat "$REAL_TXLOG" >> "$COMBINED_TXLOG"
 [[ -f "$FORK_TXLOG" ]] && cat "$FORK_TXLOG" >> "$COMBINED_TXLOG"
-"$PROTOCOL_OPS" ecosystem verify-upgrade \
+run_verify_upgrade \
   --env "$ENV" \
   --ecosystem-toml "$OUT/ecosystem.toml" \
   --l1-rpc-url "$RPC" \

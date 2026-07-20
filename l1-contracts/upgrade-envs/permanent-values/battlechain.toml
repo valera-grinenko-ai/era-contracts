@@ -1,0 +1,65 @@
+# Permanent values for the `battlechain` environment.
+#
+# Battlechain is a standalone ZKsync-OS ecosystem deployed on Ethereum
+# MAINNET (L1 chainId 1), with a SINGLE ZKsync-OS ChainTypeManager and a
+# single registered chain (626). The whole ecosystem is owned by a legacy
+# ZKsync `Governance.sol` (0x6145cb32…), NOT a ProtocolUpgradeHandler — so
+# `governance_kind = "legacy"`.
+#
+# Its CTM is on protocol v30.1 (0x1e00000001) — the same old→new
+# (→0x1f00000000 / v31.0) transition as canonical mainnet's Atlas ZKsync-OS
+# CTM. All addresses below verified on-chain (chainId 1) and match the
+# Battlechain deployment doc.
+
+l1_chain_id = 1
+
+# ZK token asset id = the deterministic NTV asset id of the ZKsync "ZK" token
+# (L1 rep 0x66A5cFB2…, native to chain 324). Verified on canonical mainnet:
+# NTV.tokenAddress(0x83e2fbc0…) == 0x66A5cFB2… (symbol "ZK", originChainId 324).
+# Asset ids are (originChainId, tokenAddress)-deterministic, so this identifier
+# is network-wide on mainnet regardless of which ecosystem's NTV has bridged it;
+# Battlechain's NTV hasn't registered it yet, but the id is the same.
+zk_token_asset_id = "0x83e2fbc0a739b3c765de4c2b4bf8072a71ea8fbb09c8cf579c71425d8bc8804a"
+
+[permanent_contracts]
+# Canonical deterministic CREATE2 deployer (Arachnid/foundry).
+create2_factory_addr = "0x4e59b44847b379578588920cA78FbF26c0B4956C"
+
+[core_contracts]
+bridgehub_proxy_addr = "0x6f85C08e2DabB6b0B8B3587D3628FCfb5b10BE19"
+# bridgehub.owner() == CTM.owner() == RollupDAManager.owner() == the legacy
+# ZKsync `Governance.sol` 0x6145cb32… (Ownable2Step timelock, securityCouncil=0x0,
+# minDelay=0). Replay goes through Utils.executeCalls (scheduleTransparent +
+# execute, signed by the Governance owner 0x4e494334…).
+governance_kind = "legacy"
+
+[ctm_contracts]
+# Single ZKsync-OS CTM. Flat legacy field kept for compatibility; the v31
+# multi-CTM flow uses the [[ctm_contracts.ctms]] array below.
+ctm_proxy_addr = "0x4Ee4EA87b909ea3E1C36d9fcbf6C0e535165f96D"
+
+# v31 CTM list — one entry (ZKsync-OS). Pre-v31 overrides required because the
+# v31 getters (ctm.isZKsyncOS(), ctm.L1_BYTECODES_SUPPLIER(),
+# PERMISSIONLESS_VALIDATOR) don't exist on v30.1 yet (AddressIntrospector
+# auto-selects the V29 path since chain 626's pv < v31).
+[[ctm_contracts.ctms]]
+proxy = "0x4Ee4EA87b909ea3E1C36d9fcbf6C0e535165f96D"
+is_zk_sync_os = true
+# NOT load-bearing: the v31 prepare deploys a FRESH BytecodesSupplier and
+# overwrites this before any use (CTMUpgrade_v31.s.sol:84-87; the value is
+# never called/code-checked). Placeholder = canonical mainnet BytecodesSupplier
+# (a real deployed contract). The V29-introspection path returns 0 for the
+# supplier, so a non-zero override is required here to satisfy the Rust
+# resolve step (l1_contracts.rs:158).
+bytecodes_supplier = "0xC9F20FC268Fc3e0e597660550033Bf2C24218fd8"
+# RollupDAManager owned by Governance (verified: diamond.getRollupDAManager()
+# == 0x1b60B986…, owner == 0x6145cb32…).
+rollup_da_manager = "0x1b60B98612163e47BFD038F11e79Cad235500581"
+
+# No [[ownable_proxies]]: every CTM / ProxyAdmin is already owned by the single
+# ecosystem Governance (0x6145cb32…), which `governance_kind = "legacy"` drives
+# directly — there is no separate keyless owner contract to wrap.
+#
+# No [legacy_gateway]: chain 626 has always settled on L1 (BlobsL1DAValidatorZKsyncOS,
+# L2 scheme 4), never on a Gateway → v31 emits no settlement-layer decommission calls.
+# No [new_gateway]: v31 brings up no new Gateway CTM for Battlechain.

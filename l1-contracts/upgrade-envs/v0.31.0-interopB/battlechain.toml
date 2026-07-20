@@ -1,0 +1,45 @@
+# v31 (v0.31.0-interopB) upgrade input for the `battlechain` environment.
+#
+# Battlechain = standalone ZKsync-OS ecosystem on Ethereum MAINNET, single
+# ZKsync-OS CTM (0x4Ee4EA87…, pv v30.1), owned by legacy Governance.sol.
+#
+# Minimal by design: the v31 upgrade prepare introspects almost everything
+# on-chain (old protocol version from CTM.protocolVersion(); era_chain_id from
+# L1AssetRouter.ERA_CHAIN_ID; validator-timelock delay, security council,
+# max chains, ecosystem owner from the live contracts) and takes chain-creation
+# params (bootloader/aa/evm hashes, VKs, genesis root, diamond init) from
+# configs/genesis/zksync-os/latest.json — NOT from a [contracts] block here.
+# So the old_protocol_version / v28_protocol_version / genesis / VK / diamond
+# and [V29] fields carried by mainnet.toml are vestigial for this flow and are
+# intentionally omitted.
+
+era_chain_id = 324
+
+# Mainnet ecosystem → real ZKsyncOSDualVerifier (not a *TestnetVerifier).
+# REQUIRED: DefaultCTMUpgrade reads this with a bare readBool (reverts if absent).
+testnet_verifier = false
+
+# GovernanceUpgradeTimer initial delay (seconds). Matches canonical mainnet's
+# v31 value (2 days).
+governance_upgrade_timer_initial_delay = 172800
+
+# Ecosystem owner = Battlechain Governance (legacy Governance.sol). Passed to
+# the CTM prepare as the target `governance`; also matches CTM.owner() so the
+# on-chain introspection agrees.
+owner_address = "0x6145cb32119D87360cC9eeF698B41E60911202C5"
+
+# Read by regen-and-verify.sh (top-level regex) and by the topology resolver.
+bridgehub_proxy_address = "0x6f85C08e2DabB6b0B8B3587D3628FCfb5b10BE19"
+
+[contracts]
+# Per-regen CREATE2 salt for this upgrade's implementations. Fresh/random so a
+# re-prepare lands at collision-free addresses.
+create2_factory_salt = "0x9234c1ad2056564e7357bb20037a8159b019de53d989b8ce11ae0c12b0df3dd9"
+# Per-regen salt for the legacy Governance.sol ceremony op ids (rotate every
+# regen so a re-broadcast doesn't collide with an already-executed op id).
+legacy_gov_salt = "0x130fea9fa5e4e99bb33117afc143d4daac6d355c178c3b39b46d109ab0137b00"
+
+# Per-CTM CREATE2 salt (one ZKsync-OS CTM). Keeps the per-CTM
+# GovernanceUpgradeTimer deploy at a distinct CREATE2 address.
+[create2_factory_salts]
+"0x4Ee4EA87b909ea3E1C36d9fcbf6C0e535165f96D" = "0x17621b67271f0b66ba3d82a03d70eaf505f0f31b71da773b7f98b41cee286a07"

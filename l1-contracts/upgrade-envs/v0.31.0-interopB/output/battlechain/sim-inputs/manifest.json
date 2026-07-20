@@ -1,0 +1,12 @@
+{
+  "bundles": [
+    {
+      "file": "02_ecosystem.upgrade-prepare-all_0x6145cb32119d87360cc9eef698b41e60911202c5.safe.json",
+      "index": 2,
+      "steps": [
+        "ecosystem.upgrade-prepare-all"
+      ],
+      "target": "0x6145cb32119d87360cc9eef698b41e60911202c5"
+    }
+  ]
+}
